@@ -1,16 +1,15 @@
 # Deploying KrishiMitra AI on a VPS (Docker)
 
-This setup runs two containers: the FastAPI app, which also serves the green web UI and PWA, and Caddy. Caddy sits in front of the app and handles HTTPS automatically with Let's Encrypt.
+This setup runs two containers: the FastAPI app, which also serves the React web app and PWA, and Caddy. Caddy sits in front of the app and handles HTTPS automatically with Let's Encrypt.
 
 ```
-Internet ──443──▶ caddy ──▶ api:8000  (FastAPI + /ui web app)
-                        └─▶ ui:8501   (optional Streamlit, /streamlit)
+Internet ──443──▶ caddy ──▶ api:8000  (FastAPI API + React app at /app)
 ```
 
 | File | Purpose |
 |---|---|
-| `Dockerfile.prod` | CPU-only image that runs as a non-root user. The embedding model is built into the image. |
-| `docker-compose.prod.yml` | Production stack with the api, caddy, and optional Streamlit services |
+| `Dockerfile.prod` | Builds the React app, then a CPU-only Python image that runs as a non-root user. The embedding model is built into the image. |
+| `docker-compose.prod.yml` | Production stack: the api and caddy services |
 | `deploy/Caddyfile` | Reverse proxy, TLS, 20 MB upload limit, security headers |
 | `deploy/entrypoint.sh` | Seeds the knowledge base on first boot |
 | `.env.production.example` | Template for `.env` on the server |
@@ -65,17 +64,9 @@ docker compose -f docker-compose.prod.yml logs -f api
 
 The first build takes about 10–15 minutes. On first boot, the API seeds the vector store and knowledge graph from `data/raw/vikaspedia_documents.json`, which takes a few minutes. Wait for Uvicorn's "Application startup complete" line in the logs.
 
-Then open **https://YOUR_DOMAIN**. It redirects to the chat UI. On a phone, use "Add to Home Screen" to install the PWA.
+Then open **https://YOUR_DOMAIN**. It redirects to the React app at `/app/`. On a phone, use "Add to Home Screen" to install the PWA.
 
 Health check: `curl https://YOUR_DOMAIN/health`
-
-### Optional: Streamlit UI
-
-```bash
-docker compose -f docker-compose.prod.yml --profile streamlit up -d
-```
-
-It is then available at `https://YOUR_DOMAIN/streamlit`.
 
 ## 5. Day-to-day operations
 
@@ -104,6 +95,5 @@ To wipe the data and re-seed from scratch: `docker compose -f docker-compose.pro
 ## Notes and caveats
 
 - **No authentication.** Conversation history is one shared SQLite file, so every visitor sees the same history. See the README. Before sharing the URL publicly, consider adding Caddy `basic_auth` in `deploy/Caddyfile`.
-- The Streamlit sidebar's "green UI" link is hard-coded to `http://localhost:<API_PORT>` in `app/ui/components/sidebar.py`. Use `https://YOUR_DOMAIN/` directly instead.
 - The crawler (Playwright/Chromium) is **not** installed in the production image. Run crawls locally, commit `data/raw/vikaspedia_documents.json`, and re-seed.
 - Testing without a domain: in `deploy/Caddyfile`, replace `{$DOMAIN}` with `:80` and browse to `http://VPS_IP`. The PWA install needs HTTPS, so it won't work this way.

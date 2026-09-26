@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, sans-serif;
+
+  --color-ink: #06100a;
+  --color-ink-2: #0a1810;
+  --color-leaf-50: #f0fdf4;
+  --color-leaf-100: #dcfce7;
+  --color-leaf-200: #bbf7d0;
+  --color-leaf-300: #86efac;
+  --color-leaf-400: #4ade80;
+  --color-leaf-500: #22c55e;
+  --color-leaf-600: #16a34a;
+  --color-leaf-700: #15803d;
+  --color-leaf-800: #166534;
+  --color-leaf-900: #14532d;
+  --color-wheat: #facc15;
+  --color-soil: #f87171;
+}
+
+:root {
+  color-scheme: dark;
+  --line: rgb(34 197 94 / 0.14);
+  --line-strong: rgb(34 197 94 / 0.32);
+}
+
+html { background: var(--color-ink); }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  color: var(--color-leaf-50);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  background: transparent;
+  overflow: hidden;
+}
+::selection { background: rgb(34 197 94 / 0.3); }
+
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+
+@layer components {
+  /* Frosted glass surface that floats above the 3D scene. */
+  .glass {
+    background: rgb(12 28 18 / 0.62);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow:
+      inset 0 1px 0 rgb(187 247 208 / 0.07),
+      0 1px 2px rgb(0 0 0 / 0.4),
+      0 22px 44px -24px rgb(0 0 0 / 0.9);
+  }
+  .glass-strong {
+    background: rgb(7 18 11 / 0.8);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+  }
+  .field {
+    width: 100%;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    padding: 0 0.875rem;
+    background: rgb(4 12 7 / 0.7);
+    border: 1px solid var(--line);
+    color: var(--color-leaf-50);
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .field:focus { border-color: var(--color-leaf-500); box-shadow: 0 0 0 3px rgb(34 197 94 / 0.18); }
+  .field::placeholder { color: rgb(163 230 181 / 0.4); }
+  select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234ade80' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.875rem center; padding-right: 2.25rem; }
+  select.field option { background: #0a1810; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    height: 2.5rem; padding: 0 1rem; border-radius: 0.75rem;
+    font-size: 0.875rem; font-weight: 600; white-space: nowrap;
+    transition: background .15s, box-shadow .15s, transform .15s, border-color .15s, color .15s;
+    cursor: pointer;
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary {
+    color: #03140a;
+    background: linear-gradient(135deg, var(--color-leaf-400), var(--color-leaf-600));
+    box-shadow: 0 8px 24px -10px rgb(34 197 94 / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.25);
+  }
+  .btn-primary:not(:disabled):hover { box-shadow: 0 10px 30px -8px rgb(34 197 94 / 0.85), inset 0 1px 0 rgb(255 255 255 / 0.3); transform: translateY(-1px); }
+  .btn-ghost { color: var(--color-leaf-200); border: 1px solid var(--line); background: rgb(34 197 94 / 0.06); }
+  .btn-ghost:not(:disabled):hover { border-color: var(--line-strong); background: rgb(34 197 94 / 0.12); color: var(--color-leaf-50); }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+    border: 1px solid var(--line); color: var(--color-leaf-300); background: rgb(34 197 94 / 0.07);
+  }
+
+  .prose-answer { line-height: 1.7; font-size: 0.95rem; color: rgb(240 253 244 / 0.92); white-space: pre-wrap; word-wrap: break-word; }
+}
+
+/* Pointer-follow glare for TiltCard */
+.tilt-glare {
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgb(134 239 172 / 0.14), transparent 45%);
+}
+
+@keyframes typing-bounce { 0%, 80%, 100% { transform: translateY(0); opacity: .35 } 40% { transform: translateY(-4px); opacity: 1 } }
+.typing-dot { animation: typing-bounce 1.2s infinite ease-in-out; }
+.typing-dot:nth-child(2) { animation-delay: .15s; }
+.typing-dot:nth-child(3) { animation-delay: .3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* Blur on many surfaces is expensive on phones. */
+@media (max-width: 768px) {
+  .glass { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgb(10 24 15 / 0.88); }
+}

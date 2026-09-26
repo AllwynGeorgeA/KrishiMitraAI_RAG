@@ -21,15 +21,14 @@ chatbot — every answer follows the chain:
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python scripts/demo_seed.py          # only if data/vector_store is empty
+(cd frontend && npm ci && npm run build)   # builds the React web app (Node 20+)
 uvicorn app.api.main:app --port 8000
 ```
-Open **http://localhost:8000** — it redirects straight to the chat UI
-(`/ui/chatbot-ui-green.html`). That's the primary, fully-functional surface.
+Open **http://localhost:8000**. It redirects to the React web app at `/app/`.
 
 ![KrishiMitra AI chat UI](docs/Screenshot.png)
 
-Optional classic UI alongside it: `streamlit run app/ui/streamlit_app.py` →
-`http://localhost:8501` (its sidebar links back to the same chat UI).
+If you skip the frontend build, `/` falls back to the older static pages at `/ui/`.
 
 No `OPENAI_API_KEY`? It still works — see [Installation](#installation) for
 the deterministic fallback. Full setup detail, env vars, and troubleshooting
@@ -59,7 +58,7 @@ are further down; this is just the fastest path to a running app.
 18. [Environment variables](#environment-variables)
 19. [Running the crawler](#running-the-crawler)
 20. [Building the index & graph](#building-the-index--graph)
-21. [Running Streamlit](#running-streamlit)
+21. [Developing the web app](#developing-the-web-app)
 22. [Running the API](#running-the-api)
 23. [Running tests](#running-tests)
 24. [Running evaluation](#running-evaluation)
@@ -141,7 +140,7 @@ User → Input Guardrail → Profile Extractor → Hybrid Retrieval
 
 | Layer | Choice |
 |---|---|
-| UI | Streamlit (premium green "agriculture + AI + trust" theme, not a ChatGPT clone) |
+| UI | React 19 + TypeScript + Vite + Tailwind CSS, with a Three.js 3D backdrop (`frontend/`) |
 | API | FastAPI |
 | LLM | OpenAI API (`OPENAI_CHAT_MODEL`, default `gpt-4o-mini`) — with a genuine deterministic fallback when no key is configured |
 | Embeddings | Hugging Face `sentence-transformers`, default `paraphrase-multilingual-mpnet-base-v2` (multilingual, Indian-language-capable), configurable via env |
@@ -155,7 +154,7 @@ User → Input Guardrail → Profile Extractor → Hybrid Retrieval
 | Evaluation | Custom deterministic harness (primary) + optional DeepEval LLM-as-judge (secondary, opt-in) |
 | Config | Pydantic Settings + `.env` |
 | Conversation history | SQLite (stdlib `sqlite3`, no ORM) — `app/conversations/`, one row per conversation/message, survives restarts |
-| Web UI | Static HTML/CSS/JS (`web/`), served by FastAPI at `/ui`, calling the same `/chat`-backed `/conversations` API — no build step, no framework |
+| Web UI | React SPA built to `frontend/dist` and served by FastAPI at `/app` (older static pages remain at `/ui`) |
 | Testing | pytest (81+ tests) |
 | Optional high-perf service | Go (stdlib-only ingestion job queue — see `go-service/`) |
 
@@ -282,30 +281,22 @@ chunk → embed → index → optional graph-extraction pipeline as crawled
 content, and labeled **User-provided document** — never silently merged
 with Vikaspedia content.
 
-## Web UI (green theme)
+## Web UI
 
-Alongside Streamlit, `web/` holds a self-contained, green-themed HTML/CSS/JS
-front end — 7 screens (Chat, Dashboard, Insights, Eligibility Checker,
-Documents, Schemes Library, Profile) styled as a modern chat app rather than
-a generic Streamlit dashboard. FastAPI serves it directly:
+`frontend/` is a React + TypeScript app (Vite, Tailwind CSS, Motion, Three.js).
+FastAPI serves the production build at `/app`. It has 7 screens, all on live data:
 
-```bash
-uvicorn app.api.main:app --port 8000
-# → http://localhost:8000/ui/chatbot-ui-green.html   (or just http://localhost:8000/, which redirects there)
-```
+| Screen | What it does |
+|---|---|
+| Chat | Conversations with history (rename, pin, delete), cited answers, scheme cards with eligibility verdicts, sources, follow-ups, file attach, opt-in live web results |
+| Dashboard | Real counts from `/stats` and `/conversations/insights`, recent chats, profile completeness |
+| Eligibility Checker | Runs the eligibility engine on the farmer's details via `/chat` |
+| Schemes Library | Every scheme in the knowledge graph (`/schemes`), search, categories, side-by-side compare (`/scheme/compare`) |
+| Documents | Drag-and-drop upload to `/upload`; the list is kept per device |
+| Insights | Questions per day, confidence mix, safety-check counts, most discussed schemes (`/conversations/insights`) |
+| Profile | Stored in the browser only and sent with each question so answers are personalised |
 
-The Chat screen is fully wired to the live API — no mock data: it creates
-real conversations, calls `/conversations/{id}/messages` (same
-`generate_answer` pipeline as Streamlit), and renders confidence badges,
-eligibility verdicts, expandable evidence citations, and follow-up chips
-straight from the actual `ChatResponse`. Its composer also has a 🌐 toggle
-for the opt-in [live web search](#live-web-search-opt-in) — on by default
-in this UI, results shown in their own dashed "unverified" box, never mixed
-into the cited answer above it. The other 6 screens are static mockups
-sharing the same visual language, not yet wired to real endpoints.
-Streamlit's sidebar has an **"🟢 Open modern Green UI"** button linking here —
-it's a real link, not an embed, since browsers commonly block a same-page
-iframe pointing at a different localhost port.
+It is responsive (slide-out menu on phones) and installable as a PWA.
 
 ## Conversation history
 
@@ -392,7 +383,7 @@ See [`.env.example`](.env.example) for the full, commented list. Key ones:
 | `DEBUG_MODE` | Shows the internal retrieval/guardrail debug panel. |
 | `NEMO_GUARDRAILS_ENABLED` | Optional supplementary LLM-based input rail. |
 | `DEEPEVAL_ENABLED` | Optional LLM-as-judge evaluation layer. |
-| `API_PORT` | Port FastAPI/uvicorn binds (default `8000`). Both the green web UI's URL and Streamlit's sidebar link to it are built from this — keep them in sync if you change it. |
+| `API_PORT` | Port FastAPI/uvicorn binds (default `8000`). |
 | `CONVERSATIONS_DB_PATH` | SQLite file for persisted chat history (default `data/conversations.db`). |
 | `WEB_SEARCH_ENABLED` | Master switch for opt-in live web search (default `false`). See [Live web search](#live-web-search-opt-in). |
 | `WEB_SEARCH_MAX_RESULTS` / `WEB_SEARCH_TIMEOUT_SECONDS` | Result cap and request timeout for that live search. |
@@ -421,15 +412,17 @@ Or, for a guaranteed-working demo without re-crawling:
 python scripts/demo_seed.py
 ```
 
-## Running Streamlit
+## Developing the web app
 
 ```bash
-streamlit run app/ui/streamlit_app.py
+uvicorn app.api.main:app --reload --port 8000       # terminal 1: API
+cd frontend && npm install && npm run dev            # terminal 2: http://localhost:5173/app/
 ```
 
-Its sidebar includes a direct link to the green-themed web UI (see
-[Web UI (green theme)](#web-ui-green-theme)) — that link needs the FastAPI
-server running too (below), on the same `API_PORT`.
+The Vite dev server proxies API calls to `http://localhost:8000`; set
+`KRISHIMITRA_API=http://localhost:8010` (for example) if the API runs elsewhere.
+`npm run build` writes `frontend/dist`, which FastAPI serves at `/app`.
+The legacy Streamlit UI (`streamlit run app/ui/streamlit_app.py`) still runs but is no longer deployed.
 
 ## Running the API
 
@@ -441,8 +434,9 @@ Endpoints: `GET /health`, `POST /chat`, `POST /upload`, `POST /ingest`,
 `POST /evaluate`, `GET /stats`, `GET /schemes`, `POST /scheme/compare`,
 plus the conversation-history surface (`GET/POST /conversations`,
 `GET/PATCH/DELETE /conversations/{id}`, `POST /conversations/{id}/messages`
-— see [Conversation history](#conversation-history)). Also serves the
-static web UI at `/ui` (redirected to from `/`).
+— see [Conversation history](#conversation-history)), and
+`GET /conversations/insights?days=30` for aggregated usage. Also serves the
+React app at `/app` (redirected to from `/`) and the older static pages at `/ui`.
 
 ## Running tests
 

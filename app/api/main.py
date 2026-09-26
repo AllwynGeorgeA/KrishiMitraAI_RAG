@@ -12,7 +12,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import chat, conversations, documents, health, ingestion
@@ -60,12 +60,32 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
 
 
 # ── Web UI ────────────────────────────────────────────────────────────────
-# Serves the green-themed static UI (web/) that calls this same API. Mounted
-# under /ui rather than "/" so it can never shadow an API route.
-_WEB_DIR = Path(__file__).resolve().parent.parent.parent / "web"
+# React app (frontend/, built to frontend/dist) served under /app so its routes
+# never shadow an API path. Any unknown /app/* path returns index.html so
+# client-side routes survive a page reload. The older static pages (web/) stay
+# reachable under /ui.
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_SPA_DIR = (_REPO_ROOT / "frontend" / "dist").resolve()
+_WEB_DIR = _REPO_ROOT / "web"
+
 if _WEB_DIR.is_dir():
     app.mount("/ui", StaticFiles(directory=str(_WEB_DIR), html=True), name="ui")
 
-    @app.get("/", include_in_schema=False)
-    def root() -> RedirectResponse:
-        return RedirectResponse(url="/ui/chatbot-ui-green.html")
+if (_SPA_DIR / "index.html").is_file():
+    app.mount("/app/assets", StaticFiles(directory=str(_SPA_DIR / "assets")), name="spa-assets")
+
+    @app.get("/app", include_in_schema=False)
+    @app.get("/app/{path:path}", include_in_schema=False)
+    def spa(path: str = "") -> FileResponse:
+        candidate = (_SPA_DIR / path).resolve()
+        if path and candidate.is_file() and candidate.is_relative_to(_SPA_DIR):
+            return FileResponse(candidate)
+        # index.html must never be cached, or clients keep loading old asset hashes after a deploy.
+        return FileResponse(_SPA_DIR / "index.html", headers={"Cache-Control": "no-cache"})
+
+_HOME = "/app/" if (_SPA_DIR / "index.html").is_file() else "/ui/chatbot-ui-green.html"
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse(url=_HOME)

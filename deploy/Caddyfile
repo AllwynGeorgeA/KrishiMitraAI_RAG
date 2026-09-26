@@ -10,11 +10,6 @@
 		max_size 20MB
 	}
 
-	# Optional Streamlit UI (only when started with --profile streamlit)
-	handle /streamlit* {
-		reverse_proxy ui:8501
-	}
-
 	handle {
 		reverse_proxy api:8000 {
 			transport http {

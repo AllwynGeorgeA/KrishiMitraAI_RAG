@@ -6,6 +6,7 @@ version: "3.9"
 # configuration (VECTOR_STORE_PROVIDER=chroma).
 
 services:
+  # Serves the API and the React web app (http://localhost:8000/app/).
   api:
     build:
       context: .
@@ -18,21 +19,6 @@ services:
     volumes:
       - ./data:/app/data
       - ./config:/app/config
-
-  ui:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: streamlit run app/ui/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
-    ports:
-      - "8501:8501"
-    env_file:
-      - .env
-    volumes:
-      - ./data:/app/data
-      - ./config:/app/config
-    depends_on:
-      - api
 
   # Optional Go service for ingestion job orchestration (see go-service/README.md).
   # Not required for the core RAG/chat experience.

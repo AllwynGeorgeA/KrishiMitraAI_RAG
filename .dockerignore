@@ -29,3 +29,7 @@ data/processed/*
 data/uploads/*
 !data/uploads/.gitkeep
 data/conversations.db
+
+# React app: node_modules and dist are rebuilt inside the image
+frontend/node_modules
+frontend/dist
