@@ -29,6 +29,16 @@ class Settings(BaseSettings):
     openai_audio_model: str = "whisper-1"
     openai_request_timeout_seconds: int = 30
 
+    # ---- LLM token budget ----
+    # Caps what each /chat call costs. Evidence shown in the UI is unaffected;
+    # only what is sent to the model is trimmed.
+    llm_max_evidence_chunks: int = 4
+    llm_max_chars_per_chunk: int = 700
+    openai_max_output_tokens: int = 700
+    # Identical question + profile + evidence => reuse the previous answer, no LLM call.
+    llm_cache_ttl_seconds: int = 86400
+    llm_cache_max_entries: int = 512
+
     # ---- Embeddings ----
     embedding_provider: str = "sentence_transformers"
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"

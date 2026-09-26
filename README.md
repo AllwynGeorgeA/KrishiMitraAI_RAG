@@ -382,6 +382,9 @@ See [`.env.example`](.env.example) for the full, commented list. Key ones:
 | Variable | Purpose |
 |---|---|
 | `OPENAI_API_KEY` | Enables LLM-based generation, voice transcription. Optional. |
+| `LLM_MAX_EVIDENCE_CHUNKS` / `LLM_MAX_CHARS_PER_CHUNK` | How much retrieved evidence is sent to the LLM (default `4` chunks, `700` chars each). The evidence panel still shows everything retrieved. |
+| `OPENAI_MAX_OUTPUT_TOKENS` | Hard cap on answer length per LLM call (default `700`). |
+| `LLM_CACHE_TTL_SECONDS` / `LLM_CACHE_MAX_ENTRIES` | Reuses the answer for a repeated question with the same profile and evidence, spending no tokens (default 24 h, 512 entries, in memory). `0` disables. |
 | `EMBEDDING_MODEL` | Sentence-transformers model (default: multilingual mpnet). |
 | `VECTOR_STORE_PROVIDER` / `VECTOR_STORE_PATH` | Chroma persistent store location. |
 | `RETRIEVAL_SCORE_THRESHOLD` | Evidence-confidence gate (default `0.32`). |

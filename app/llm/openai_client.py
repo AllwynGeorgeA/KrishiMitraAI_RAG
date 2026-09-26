@@ -54,7 +54,20 @@ def chat_completion_json(system_prompt: str, user_prompt: str, temperature: floa
             ],
             temperature=temperature,
             response_format={"type": "json_object"},
+            max_completion_tokens=settings.openai_max_output_tokens,
         )
+        usage = response.usage
+        if usage is not None:
+            cached = getattr(usage.prompt_tokens_details, "cached_tokens", 0) if usage.prompt_tokens_details else 0
+            logger.info(
+                "LLM token usage",
+                extra={
+                    "prompt_tokens": usage.prompt_tokens,
+                    "cached_prompt_tokens": cached,
+                    "completion_tokens": usage.completion_tokens,
+                    "finish_reason": response.choices[0].finish_reason,
+                },
+            )
         return response.choices[0].message.content or "{}"
     except Exception as exc:  # noqa: BLE001
         logger.error("OpenAI chat completion failed", extra={"error": str(exc)})

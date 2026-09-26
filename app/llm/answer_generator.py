@@ -22,6 +22,7 @@ from app.graph.graph_builder import slug
 from app.guardrails.answer_guardrail import check_answer
 from app.guardrails.input_guardrail import check_input
 from app.guardrails.retrieval_guardrail import check_retrieval
+from app.llm import cache as llm_cache
 from app.llm import openai_client
 from app.llm.prompts import SYSTEM_PROMPT, build_user_prompt
 from app.llm.schemas import (
@@ -267,17 +268,61 @@ def _build_extractive_answer(
     )
 
 
+def _compact_evidence(evidence: list[EvidenceChunk]) -> tuple[list[EvidenceChunk], dict[str, str]]:
+    """
+    Token saver: send the model only the top-N chunks, each truncated, under
+    short aliases ("E1") instead of real chunk_ids ("chunk_3f9a1c..."). The
+    model repeats ids in every claim and citation, so this cuts output tokens
+    too. Returns the compacted chunks and an alias -> real chunk_id map.
+    """
+    settings = get_settings()
+    limit = settings.llm_max_chars_per_chunk
+    compacted, alias_to_id = [], {}
+    for i, chunk in enumerate(evidence[: settings.llm_max_evidence_chunks], start=1):
+        alias = f"E{i}"
+        alias_to_id[alias] = chunk.chunk_id
+        text = chunk.text if len(chunk.text) <= limit else chunk.text[:limit].rsplit(" ", 1)[0] + "…"
+        compacted.append(chunk.model_copy(update={"chunk_id": alias, "text": text}))
+    return compacted, alias_to_id
+
+
+def _resolve_aliases(answer: LLMAnswer, alias_to_id: dict[str, str]) -> LLMAnswer:
+    """Map E1/E2 back to real chunk_ids. Unknown ids pass through unchanged and
+    are then dropped by the hallucination guard like any other invalid citation."""
+    def resolve(ids: list[str]) -> list[str]:
+        return [alias_to_id.get(i.strip("[] "), i) for i in ids]
+
+    return answer.model_copy(
+        update={
+            "claims": [c.model_copy(update={"supported_by": resolve(c.supported_by)}) for c in answer.claims],
+            "schemes": [s.model_copy(update={"citations": resolve(s.citations)}) for s in answer.schemes],
+            "citations": resolve(answer.citations),
+        }
+    )
+
+
 def _call_llm(
     query: str, retrieval: RetrievalResult, profile: FarmerProfile, is_objection: bool
 ) -> LLMAnswer:
-    user_prompt = build_user_prompt(query, retrieval.chunks, profile=profile, objection_mode=is_objection)
-    raw = openai_client.chat_completion_json(SYSTEM_PROMPT, user_prompt)
+    evidence, alias_to_id = _compact_evidence(retrieval.chunks)
+    user_prompt = build_user_prompt(query, evidence, profile=profile, objection_mode=is_objection)
+
+    cache_key = llm_cache.make_key(get_settings().openai_chat_model, SYSTEM_PROMPT, user_prompt)
+    raw = llm_cache.get(cache_key)
+    from_cache = raw is not None
+    if not from_cache:
+        raw = openai_client.chat_completion_json(SYSTEM_PROMPT, user_prompt)
     try:
         data = json.loads(raw)
-        return LLMAnswer.model_validate(data)
+        answer = LLMAnswer.model_validate(data)
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to parse LLM JSON answer — falling back to extractive", extra={"error": str(exc)})
         raise LLMError(f"Could not parse LLM response: {exc}") from exc
+    if from_cache:
+        logger.info("LLM answer served from cache (0 tokens)")
+    else:
+        llm_cache.put(cache_key, raw)
+    return _resolve_aliases(answer, alias_to_id)
 
 
 def generate_answer(
