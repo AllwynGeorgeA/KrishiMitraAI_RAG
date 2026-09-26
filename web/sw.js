@@ -3,7 +3,7 @@
 // serve stale answers), falling back to a cached copy only when actually
 // offline -- so the app shell (HTML/CSS/JS/icons) still opens without a
 // connection, even though live chat obviously needs one.
-const CACHE_NAME = 'krishimitra-shell-v1';
+const CACHE_NAME = 'krishimitra-shell-v2';
 const SHELL_FILES = [
   '/ui/chatbot-ui-green.html',
   '/ui/dashboard-ui-green.html',
@@ -13,6 +13,10 @@ const SHELL_FILES = [
   '/ui/schemes-library-ui-green.html',
   '/ui/profile-ui-green.html',
   '/ui/manifest.json',
+  '/ui/assets/depth3d.css',
+  '/ui/assets/depth3d.js',
+  '/ui/assets/scene3d.js',
+  '/ui/vendor/three.module.min.js',
   '/ui/icons/icon-192.png',
   '/ui/icons/icon-512.png',
 ];

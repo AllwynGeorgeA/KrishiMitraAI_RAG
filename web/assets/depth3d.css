@@ -1,0 +1,94 @@
+/* KrishiMitra 3D layer. Shared by every page, loaded after each page's own styles.
+   Surfaces turn into frosted glass over the WebGL farmland (scene3d.js) and gain
+   real depth: tilt on hover, rise-in from depth, and perspective page transitions. */
+
+html { background: #06100a; }
+html.km3d-on body { background: transparent !important; }
+
+#km3d {
+  position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, #040b07 0%, #06100a 38%, #0b2414 62%, #06100a 100%);
+}
+
+/* Let the scene show through: remove the flat pattern and lighten the solid chrome. */
+html.km3d-on .chat-main { background-image: none !important; }
+html.km3d-on .side-panel,
+html.km3d-on .sidebar {
+  background: rgba(6, 16, 10, 0.72) !important;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+html.km3d-on .topnav {
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* ── Glass cards with depth ─────────────────────────────────── */
+.panel, .stat-card, .scheme-card, .result-card, .hero-card, .side-kb-card, .web-results-box {
+  position: relative;
+  transform-style: preserve-3d;
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  box-shadow:
+    inset 0 1px 0 rgba(187, 247, 208, 0.07),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 18px 40px -20px rgba(0, 0, 0, 0.85);
+  transition: transform 0.35s cubic-bezier(.2,.8,.2,1), box-shadow 0.35s ease, border-color 0.2s ease;
+}
+
+/* Tilt targets (smaller, clickable cards). Panels only get depth, not tilt:
+   tilting a whole form while typing in it is disorienting. */
+.km3d-tilt:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(187, 247, 208, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    0 30px 60px -22px rgba(0, 0, 0, 0.9),
+    0 0 32px -8px rgba(34, 197, 94, 0.28);
+}
+/* Pointer-following glare */
+.km3d-tilt::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(134, 239, 172, 0.13), transparent 45%);
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.km3d-tilt:hover::after { opacity: 1; }
+
+/* ── Rise in from depth ─────────────────────────────────────── */
+@keyframes km3d-rise {
+  from { opacity: 0; transform: perspective(900px) translate3d(0, 26px, -80px) rotateX(14deg); }
+  to   { opacity: 1; transform: none; }
+}
+.km3d-rise { animation: km3d-rise 0.7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 60ms); }
+
+@keyframes km3d-pop {
+  from { opacity: 0; transform: perspective(700px) translate3d(0, 12px, -40px) rotateX(8deg); }
+  to   { opacity: 1; transform: none; }
+}
+.msg-bubble.km3d-pop, .web-result-item.km3d-pop, .msg-source-item.km3d-pop { animation: km3d-pop 0.45s cubic-bezier(.2,.8,.2,1) both; }
+
+/* ── Logo: spin in 3D on hover ─────────────────────────────── */
+.logo, .brand-mark { transition: transform 0.8s cubic-bezier(.2,.8,.2,1); transform-style: preserve-3d; }
+.logo:hover, .brand-mark:hover { transform: perspective(300px) rotateY(360deg) translateZ(6px); }
+
+/* ── Page transitions ──────────────────────────────────────── */
+@keyframes km3d-enter {
+  from { opacity: 0; transform: perspective(1400px) translateZ(-120px) rotateX(4deg); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes km3d-leave {
+  to { opacity: 0; transform: perspective(1400px) translateZ(90px); }
+}
+body > .main, .chat-main { animation: km3d-enter 0.55s cubic-bezier(.2,.8,.2,1) both; }
+html.km3d-leaving .main, html.km3d-leaving .chat-main { animation: km3d-leave 0.22s ease-in both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .km3d-rise, .km3d-pop, body > .main, .chat-main, html.km3d-leaving .main, html.km3d-leaving .chat-main { animation: none !important; }
+  .logo:hover, .brand-mark:hover { transform: none; }
+}
+
+/* Blur on many elements is expensive on phones: keep it on chrome only. */
+@media (max-width: 768px) {
+  .panel, .stat-card, .scheme-card, .result-card, .hero-card, .side-kb-card, .web-results-box {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+}

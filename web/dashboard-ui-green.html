@@ -402,6 +402,7 @@ body {
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-dim), var(--accent)); border-radius: 3px; }
 .scheme-pct { font-size: 11px; color: var(--text-ghost); width: 34px; text-align: right; flex-shrink: 0; }
 </style>
+<link rel="stylesheet" href="assets/depth3d.css">
 </head>
 <body>
 
@@ -566,5 +567,7 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
+<script src="assets/depth3d.js" defer></script>
+<script type="module" src="assets/scene3d.js"></script>
 </body>
 </html>

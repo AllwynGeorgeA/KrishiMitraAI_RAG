@@ -131,6 +131,7 @@ body { background: var(--bg); color: var(--text-pri); display: flex; overflow: h
 .source-link:hover { color: var(--accent); }
 .source-link svg { width: 12px; height: 12px; }
 </style>
+<link rel="stylesheet" href="assets/depth3d.css">
 </head>
 <body>
 
@@ -329,5 +330,7 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
+<script src="assets/depth3d.js" defer></script>
+<script type="module" src="assets/scene3d.js"></script>
 </body>
 </html>
