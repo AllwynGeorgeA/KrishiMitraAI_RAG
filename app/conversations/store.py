@@ -18,7 +18,7 @@ import json
 import sqlite3
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
 
@@ -178,3 +178,77 @@ def delete_conversation(conversation_id: str) -> bool:
         cur = conn.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
         changed = cur.rowcount > 0
     return changed
+
+
+def insights(days: int = 30) -> dict:
+    """
+    Real usage numbers for the Insights/Dashboard pages, aggregated from stored
+    assistant responses: questions per day, confidence mix, how often each
+    guardrail fired, and which schemes came up most. `days <= 0` means all time.
+    """
+    now = datetime.now(timezone.utc)
+    since = "" if days <= 0 else (now - timedelta(days=days)).isoformat()
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT role, response_json, created_at FROM messages WHERE created_at >= ? ORDER BY created_at ASC",
+            (since,),
+        ).fetchall()
+        conversation_count = conn.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+
+    per_day: dict[str, int] = {}
+    confidence = {"high": 0, "medium": 0, "low": 0}
+    guardrails: dict[str, int] = {}
+    schemes: dict[str, int] = {}
+    questions = answered = claims_removed = 0
+
+    for row in rows:
+        if row["role"] == "user":
+            questions += 1
+            day = row["created_at"][:10]
+            per_day[day] = per_day.get(day, 0) + 1
+            continue
+        if not row["response_json"]:
+            continue
+        try:
+            resp = json.loads(row["response_json"])
+        except ValueError:
+            continue
+        if resp.get("confidence") in confidence:
+            confidence[resp["confidence"]] += 1
+        if resp.get("refused"):
+            name = resp.get("guardrail_triggered") or "other"
+            guardrails[name] = guardrails.get(name, 0) + 1
+        else:
+            answered += 1
+        removed = (resp.get("trust_check") or {}).get("claims_removed") or 0
+        if removed:
+            claims_removed += removed
+            guardrails["hallucination_claims_removed"] = guardrails.get("hallucination_claims_removed", 0) + removed
+        for scheme in resp.get("schemes") or []:
+            name = scheme.get("scheme_name")
+            if name:
+                schemes[name] = schemes.get(name, 0) + 1
+
+    # Continuous day series (zero-filled) so charts don't skip quiet days.
+    if days > 0:
+        span = days
+    elif per_day:
+        span = (now.date() - datetime.fromisoformat(min(per_day)).date()).days + 1
+    else:
+        span = 1
+    series = []
+    for offset in range(min(span, 90) - 1, -1, -1):
+        day = (now - timedelta(days=offset)).date().isoformat()
+        series.append({"date": day, "questions": per_day.get(day, 0)})
+
+    return {
+        "days": days,
+        "conversations": conversation_count,
+        "questions": questions,
+        "answered": answered,
+        "claims_removed": claims_removed,
+        "confidence": confidence,
+        "guardrails": dict(sorted(guardrails.items(), key=lambda kv: -kv[1])),
+        "top_schemes": [{"name": n, "count": c} for n, c in sorted(schemes.items(), key=lambda kv: -kv[1])[:8]],
+        "questions_per_day": series,
+    }

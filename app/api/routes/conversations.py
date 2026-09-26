@@ -32,6 +32,12 @@ class PostMessageRequest(BaseModel):
     web_search: bool = False
 
 
+@router.get("/insights")
+def conversation_insights(days: int = 30) -> dict:
+    """Aggregated real usage (questions/day, confidence mix, guardrail hits, top schemes)."""
+    return store.insights(days=days)
+
+
 @router.get("")
 def list_conversations() -> list[dict]:
     return store.list_conversations()
