@@ -1,0 +1,40 @@
+# KrishiMitra AI: production image (CPU only, runs as non-root).
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    HF_HOME=/app/.cache/huggingface
+
+WORKDIR /app
+
+# System deps for PyMuPDF/pytesseract/Pillow. Adds Hindi and Tamil OCR packs.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        tesseract-ocr tesseract-ocr-hin tesseract-ocr-tam \
+        libgl1 libglib2.0-0 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# CPU-only torch first. The default PyPI wheel bundles CUDA (several GB) that a VPS can't use.
+COPY requirements.txt .
+RUN pip install --index-url https://download.pytorch.org/whl/cpu torch==2.14.0 \
+    && pip install -r requirements.txt
+
+RUN useradd --create-home --uid 1000 app
+
+# Bake the embedding model into the image so the first request doesn't download ~1 GB.
+ARG EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('${EMBEDDING_MODEL}')" \
+    && chown -R app:app /app/.cache
+
+COPY --chown=app:app . .
+RUN chmod +x deploy/entrypoint.sh
+
+USER app
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
+    CMD curl -fsS http://localhost:8000/health || exit 1
+
+ENTRYPOINT ["deploy/entrypoint.sh"]
+CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

@@ -1,0 +1,31 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+!.env.production.example
+.venv*
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.vscode
+.idea
+*.log
+logs
+Claude outputs
+go-service
+tests
+docs/*.png
+# Runtime data is generated inside the container volume, never baked into the image
+data/vector_store/*
+!data/vector_store/.gitkeep
+data/knowledge_graph/*
+!data/knowledge_graph/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/uploads/*
+!data/uploads/.gitkeep
+data/conversations.db

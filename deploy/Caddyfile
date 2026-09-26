@@ -1,0 +1,32 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Upload limit, set a little above MAX_UPLOAD_SIZE_MB (15)
+	request_body {
+		max_size 20MB
+	}
+
+	# Optional Streamlit UI (only when started with --profile streamlit)
+	handle /streamlit* {
+		reverse_proxy ui:8501
+	}
+
+	handle {
+		reverse_proxy api:8000 {
+			transport http {
+				read_timeout 120s
+			}
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}

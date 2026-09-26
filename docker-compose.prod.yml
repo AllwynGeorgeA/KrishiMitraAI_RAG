@@ -1,0 +1,78 @@
+# KrishiMitra AI: VPS production stack.
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Caddy terminates HTTPS with automatic Let's Encrypt certificates for $DOMAIN.
+# HTTPS is required for the PWA "Add to Home Screen" to work on phones.
+# Only Caddy is exposed publicly. The API is reachable only inside the Docker network.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: krishimitra-api:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+    volumes:
+      # Named volume: on first run Docker copies the image's data/ in
+      # (including data/raw/vikaspedia_documents.json), then keeps it across rebuilds.
+      - krishimitra-data:/app/data
+    expose:
+      - "8000"
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env (e.g. krishimitra.example.com)}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # Optional classic Streamlit UI at https://$DOMAIN/streamlit
+  # Enable with:  docker compose -f docker-compose.prod.yml --profile streamlit up -d
+  ui:
+    image: krishimitra-api:latest
+    profiles: ["streamlit"]
+    restart: unless-stopped
+    depends_on:
+      - api
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      AUTO_SEED: "false"
+    command: >
+      streamlit run app/ui/streamlit_app.py
+      --server.port 8501 --server.address 0.0.0.0
+      --server.baseUrlPath streamlit --server.headless true
+    volumes:
+      - krishimitra-data:/app/data
+    expose:
+      - "8501"
+
+volumes:
+  krishimitra-data:
+  caddy-data:
+  caddy-config:
